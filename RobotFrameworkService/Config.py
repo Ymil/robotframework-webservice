@@ -1,5 +1,6 @@
 class Config:
     class Default:
+        responseformat = "json"
         taskfolder = "examples"
         variablefiles = None
         debugfile = None

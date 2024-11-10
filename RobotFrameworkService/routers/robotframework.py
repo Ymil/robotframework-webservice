@@ -3,6 +3,7 @@ import pathlib
 
 from fastapi import APIRouter, Request, Path, status
 from fastapi.responses import HTMLResponse, Response, RedirectResponse
+import robot.api
 from starlette.responses import JSONResponse
 
 from RobotFrameworkService.Config import Config as RFS_Config
@@ -14,6 +15,7 @@ import multiprocessing as mp
 
 import asyncio
 import shutil
+RESPONSE_FORMAT = RFS_Config().cmd_args.responseformat
 
 router = APIRouter(
     prefix="/robotframework",
@@ -37,27 +39,57 @@ async def run_robot_in_background(func, args):
     p.start()
     return p
 
+def _make_result_url(id):
+    return f"/logs/{id}/report.html"
 
+def _make_result_data(id, result):
+    if result == 0:
+        result_message = "PASS"
+        status_code = 200
+    elif 250 >= result >= 1:
+        result_message = f"FAIL: {result} tasks failed"
+        status_code = 400
+    else:
+        result_message = f"FAIL: Errorcode {result}"
+        status_code = 500
+        
+    content = {
+        "id": id,
+        "result_page": _make_result_url(id),
+        "result": result_message
+    }
+    
+    if status_code == 500:
+        content["result_page"] = ""
+    return (content, status_code)
+    
+def _make_html_response(id, result):
+    content, status_code = _make_result_data(id, result)
+    result_page = content["result"]
+    result_page += f'<p><a href="{content["result_page"]}">Go to log</a></p>'
+    
+    return Response(
+        content=result_page, media_type="text/html", status_code=status_code
+    )
+
+def _make_json_response(id, result):
+    content, status_code = _make_result_data(id, result)
+    return JSONResponse(
+        status_code=status_code,
+        content=content
+    )
 async def run_robot_and_wait(executor: Executor, func, args):
     # run robot concurrently and wait for it.
     loop = asyncio.get_event_loop()
     result: int = await loop.run_in_executor(executor, func, *args)
     id = args[0]
-    if result == 0:
-        result_page = "PASS"
-        result_page += f'<p><a href="/logs/{id}/log.html">Go to log</a></p>'
-        status_code = 200
-    elif 250 >= result >= 1:
-        result_page = f"FAIL: {result} tasks failed"
-        result_page += f'<p><a href="/logs/{id}/log.html">Go to log</a></p>'
-        status_code = 400
-    else:
-        result_page = f"FAIL: Errorcode {result}"
-        status_code = 500
 
-    return Response(
-        content=result_page, media_type="text/html", status_code=status_code
-    )
+    if RESPONSE_FORMAT == "html":
+        return _make_html_response(id, result)
+    else:
+        return _make_json_response(id, result)
+
+
 
 
 @router.get("/run/all", tags=["execution"])

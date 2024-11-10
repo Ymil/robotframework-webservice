@@ -80,6 +80,12 @@ if __name__ == "__main__":
         help="Folder with tasks service will executed",
     )
     parser.add_argument(
+        "-r",
+        "--reponseformat",
+        default="json",
+        help="Response format json or html",
+    )
+    parser.add_argument(
         "--version",
         action="version",
         version=f"Robot Framework Webservice {get_version()}",
