@@ -344,6 +344,32 @@ def _start_specific_robot_task(id: str, task: str, variables: list, config) -> i
         consolewidth=120,
     )
 
+@router.get("/suites", tags=["execution"])
+def get_suites(request: Request):
+    """
+    Get all suites info in json format
+    """
+    config = RFS_Config().cmd_args
+    return _get_tests_suites(config)
+
+def _get_tests_suites(config) -> int:
+    testsuite = robot.api.TestSuite.from_file_system(config.taskfolder)
+    testsuite_data = testsuite.to_dict()
+    return clean_suite_data(testsuite_data)
+
+def remove_key(data, key_to_remove):
+    if isinstance(data, dict):
+        return {key: remove_key(value, key_to_remove) for key, value in data.items() if key != key_to_remove}
+    elif isinstance(data, list):
+        return [remove_key(item, key_to_remove) for item in data]
+    else:
+        return data
+
+def clean_suite_data(data):
+    suite_data = remove_key(data, 'lineno')
+    suite_data = remove_key(suite_data, 'body')
+    suite_data = remove_key(suite_data, 'resource')
+    return suite_data
 
 class RequestHelper:
     @staticmethod
