@@ -22,9 +22,18 @@ async def lifespan(app: FastAPI):
     yield
     app.state.executor.shutdown()
 
+from fastapi.middleware.cors import CORSMiddleware
 
 pathlib.Path(LOGS).mkdir(exist_ok=True)
 app = FastAPI(title=APP_NAME, version=get_version(), lifespan=lifespan)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins="*",
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 app.include_router(robotframework.router)
 app.include_router(robotframework_run.router)
 app.mount(f"/{LOGS}", StaticFiles(directory=LOGS), name="robotlog")
